@@ -60,8 +60,82 @@ namespace gem5
 namespace RiscvISA
 {
 
-enum MiscRegIndex
-{
+using RiscvISAInst::MaxInstSrcRegs;
+using RiscvISAInst::MaxInstDestRegs;
+const int MaxMiscDestRegs = 2;
+
+// Not applicable to RISC-V
+using VecElem = ::DummyVecElem;
+using VecReg = ::DummyVecReg;
+using ConstVecReg = ::DummyConstVecReg;
+using VecRegContainer = ::DummyVecRegContainer;
+constexpr unsigned NumVecElemPerVecReg = ::DummyNumVecElemPerVecReg;
+constexpr size_t VecRegSizeBytes = ::DummyVecRegSizeBytes;
+
+// Not applicable to RISC-V
+using VecPredReg = ::DummyVecPredReg;
+using ConstVecPredReg = ::DummyConstVecPredReg;
+using VecPredRegContainer = ::DummyVecPredRegContainer;
+constexpr size_t VecPredRegSizeBits = ::DummyVecPredRegSizeBits;
+constexpr bool VecPredRegHasPackedRepr = ::DummyVecPredRegHasPackedRepr;
+
+const int NumIntArchRegs = 32;
+const int NumMicroIntRegs = 1;
+const int NumIntRegs = NumIntArchRegs + NumMicroIntRegs;
+const int NumFloatRegs = 32;
+
+const unsigned NumVecRegs = 1;  // Not applicable to RISC-V
+                                // (1 to prevent warnings)
+const int NumVecPredRegs = 1;  // Not applicable to RISC-V
+                               // (1 to prevent warnings)
+
+const int NumCCRegs = 0;
+
+// Semantically meaningful register indices
+const int ZeroReg = 0;
+const int ReturnAddrReg = 1;
+const int StackPointerReg = 2;
+const int GlobalPointerReg = 3;
+const int ThreadPointerReg = 4;
+const int FramePointerReg = 8;
+const int ReturnValueReg = 10;
+const std::vector<int> ReturnValueRegs = {10, 11};
+const std::vector<int> ArgumentRegs = {10, 11, 12, 13, 14, 15, 16, 17};
+const int AMOTempReg = 32;
+
+const int SyscallPseudoReturnReg = 10;
+const std::vector<int> SyscallArgumentRegs = {10, 11, 12, 13, 14, 15, 16};
+const int SyscallNumReg = 17;
+
+const std::vector<std::string> IntRegNames = {
+    "zero", "ra", "sp", "gp",
+    "tp", "t0", "t1", "t2",
+    "s0", "s1", "a0", "a1",
+    "a2", "a3", "a4", "a5",
+    "a6", "a7", "s2", "s3",
+    "s4", "s5", "s6", "s7",
+    "s8", "s9", "s10", "s11",
+    "t3", "t4", "t5", "t6"
+};
+const std::vector<std::string> FloatRegNames = {
+    "ft0", "ft1", "ft2", "ft3",
+    "ft4", "ft5", "ft6", "ft7",
+    "fs0", "fs1", "fa0", "fa1",
+    "fa2", "fa3", "fa4", "fa5",
+    "fa6", "fa7", "fs2", "fs3",
+    "fs4", "fs5", "fs6", "fs7",
+    "fs8", "fs9", "fs10", "fs11",
+    "ft8", "ft9", "ft10", "ft11"
+};
+
+const std::vector<std::string> VectorRegNames ={
+    "v0",   "v1",   "v2",   "v3",   "v4",   "v5",   "v6",   "v7",
+    "v8",   "v9",   "v10",  "v11",  "v12",  "v13",  "v14",  "v15",
+    "v16",  "v17",  "v18",  "v19",  "v20",  "v21",  "v22",  "v23",
+    "v24",  "v25",  "v26",  "v27",  "v28",  "v29",  "v30",  "v31"
+};
+
+enum MiscRegIndex {
     MISCREG_PRV = 0,
     MISCREG_ISA,
     MISCREG_VENDORID,
@@ -186,6 +260,9 @@ enum MiscRegIndex
     MISCREG_UTVAL,
     MISCREG_FFLAGS,
     MISCREG_FRM,
+
+    MISCREG_VL,
+    MISCREG_VTYPE,
 
     // These registers are not in the standard, hence does not exist in the
     // CSRData map. These are mainly used to provide a minimal implementation
@@ -364,7 +441,10 @@ enum CSRIndex
     CSR_TDATA3 = 0x7A3,
     CSR_DCSR = 0x7B0,
     CSR_DPC = 0x7B1,
-    CSR_DSCRATCH = 0x7B2
+    CSR_DSCRATCH = 0x7B2,
+
+    CSR_VL           = 0xC20,
+    CSR_VTYPE        = 0xC21
 };
 
 struct CSRMetadata
@@ -534,7 +614,10 @@ const std::map<int, CSRMetadata> CSRData = {
     {CSR_TDATA3, {"tdata3", MISCREG_TDATA3}},
     {CSR_DCSR, {"dcsr", MISCREG_DCSR}},
     {CSR_DPC, {"dpc", MISCREG_DPC}},
-    {CSR_DSCRATCH, {"dscratch", MISCREG_DSCRATCH}}
+    {CSR_DSCRATCH, {"dscratch", MISCREG_DSCRATCH}},
+
+    {CSR_VL,           {"vl"    , MISCREG_VL}},
+    {CSR_VTYPE,        {"vtype" , MISCREG_VTYPE}}
 };
 
 /**

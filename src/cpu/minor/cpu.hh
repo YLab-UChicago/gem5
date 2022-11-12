@@ -203,6 +203,11 @@ class MinorCPU : public BaseCPU
      *  already been idled.  The stage argument should be from the
      *  enumeration Pipeline::StageId */
     void wakeupOnEvent(unsigned int stage_id);
+
+#if THE_ISA == RISCV_ISA
+    /** The vector engine interface */
+    VectorEngineInterface *ve_interface;
+#endif
     EventFunctionWrapper *fetchEventWrapper;
 };
 

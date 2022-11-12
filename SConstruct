@@ -76,6 +76,18 @@
 ###################################################
 
 # Global Python imports
+from gem5_scons.util import get_termcap
+from gem5_scons.util import compareVersions, readCommand
+from gem5_scons.sources import TagImpliesTool
+from gem5_scons.builders import Blob
+from gem5_scons.builders import ConfigFile, AddLocalRPATH, SwitchingHeaders
+import gem5_scons
+from gem5_scons import TempFileSpawn, EnvDefaults, MakeAction, MakeActionTool
+from gem5_scons import error, warning, summarize_warnings, parse_build_path
+import SCons.Tool
+import SCons.Node.FS
+import SCons.Node
+import SCons
 import atexit
 import os
 import sys
@@ -89,10 +101,6 @@ import logging
 logging.basicConfig()
 
 # SCons imports
-import SCons
-import SCons.Node
-import SCons.Node.FS
-import SCons.Tool
 
 if getattr(SCons, '__version__', None) in ('3.0.0', '3.0.1'):
     # Monkey patch a fix which appears in version 3.0.2, since we only
@@ -147,17 +155,10 @@ AddOption('--pprof', action='store_true',
           help='Enable support for the pprof profiler')
 
 # Inject the built_tools directory into the python path.
-sys.path[1:1] = [ Dir('#build_tools').abspath ]
+sys.path[1:1] = [Dir('#build_tools').abspath]
 
 # Imports of gem5_scons happen here since it depends on some options which are
 # declared above.
-from gem5_scons import error, warning, summarize_warnings, parse_build_path
-from gem5_scons import TempFileSpawn, EnvDefaults, MakeAction, MakeActionTool
-import gem5_scons
-from gem5_scons.builders import ConfigFile, AddLocalRPATH, SwitchingHeaders
-from gem5_scons.builders import Blob
-from gem5_scons.sources import TagImpliesTool
-from gem5_scons.util import compareVersions, readCommand
 
 # Disable warnings when targets can be built with multiple environments but
 # with the same actions. This can happen intentionally if, for instance, a
@@ -175,16 +176,15 @@ Export('MakeAction')
 ########################################################################
 
 main = Environment(tools=[
-        'default', 'git', TempFileSpawn, EnvDefaults, MakeActionTool,
-        ConfigFile, AddLocalRPATH, SwitchingHeaders, TagImpliesTool, Blob
-    ])
+    'default', 'git', TempFileSpawn, EnvDefaults, MakeActionTool,
+    ConfigFile, AddLocalRPATH, SwitchingHeaders, TagImpliesTool, Blob
+])
 
 main.Tool(SCons.Tool.FindTool(['gcc', 'clang'], main))
 main.Tool(SCons.Tool.FindTool(['g++', 'clang++'], main))
 
 Export('main')
 
-from gem5_scons.util import get_termcap
 termcap = get_termcap()
 
 # Check that we have a C/C++ compiler
@@ -203,7 +203,7 @@ Default(environ.get('M5_DEFAULT_BINARY', 'build/ARM/gem5.debug'))
 ########################################################################
 
 # helper function: find last occurrence of element in list
-def rfind(l, elt, offs = -1):
+def rfind(l, elt, offs=-1):
     for i in range(len(l)+offs, 0, -1):
         if l[i] == elt:
             return i
@@ -212,6 +212,8 @@ def rfind(l, elt, offs = -1):
 # Take a list of paths (or SCons Nodes) and return a list with all
 # paths made absolute and ~-expanded.  Paths will be interpreted
 # relative to the launch directory unless a different root is provided
+
+
 def makePathListAbsolute(path_list, root=GetLaunchDir()):
     return [abspath(os.path.join(root, expanduser(str(p))))
             for p in path_list]
@@ -221,6 +223,7 @@ def makePathListAbsolute(path_list, root=GetLaunchDir()):
 # example, for target 'foo/bar/build/X86/arch/x86/blah.do' we
 # recognize that X86 specifies the configuration because it
 # follow 'build' in the build path.
+
 
 # The funky assignment to "[:]" is needed to replace the list contents
 # in place rather than reassign the symbol to a new list, which
@@ -239,7 +242,7 @@ for t in BUILD_TARGETS:
         build_root = this_build_root
     elif this_build_root != build_root:
         error("build targets not under same build root\n  %s\n  %s" %
-            (build_root, this_build_root))
+              (build_root, this_build_root))
 
     # Collect all the variants into a set.
     variant_paths.add(os.path.join('/', build_root, variant))
@@ -299,6 +302,7 @@ if main['GCC'] + main['CLANG'] > 1:
 
 main['USE_PYTHON'] = not GetOption('without_python')
 
+
 def config_embedded_python(env):
     # Find Python include and library directories for embedding the
     # interpreter. We rely on python-config to resolve the appropriate
@@ -322,7 +326,8 @@ def config_embedded_python(env):
     def flag_filter(env, cmd_output):
         flags = cmd_output.split()
         prefixes = ('-l', '-L', '-I')
-        is_useful = lambda x: any(x.startswith(prefix) for prefix in prefixes)
+        def is_useful(x): return any(x.startswith(prefix)
+                                     for prefix in prefixes)
         useful_flags = list(filter(is_useful, flags))
         env.MergeFlags(' '.join(useful_flags))
 
@@ -401,14 +406,14 @@ for variant_path in variant_paths:
                 if not conf.CheckLinkFlag(f'-fuse-ld={linker}'):
                     # check mold support for gcc older than 12.1.0
                     if linker == 'mold' and \
-                       (env['GCC'] and \
+                       (env['GCC'] and
                            compareVersions(env['CXXVERSION'],
                                            "12.1.0") < 0) and \
-                       ((isdir('/usr/libexec/mold') and \
-                           conf.CheckLinkFlag('-B/usr/libexec/mold')) or \
-                       (isdir('/usr/local/libexec/mold') and \
+                       ((isdir('/usr/libexec/mold') and
+                           conf.CheckLinkFlag('-B/usr/libexec/mold')) or
+                        (isdir('/usr/local/libexec/mold') and
                            conf.CheckLinkFlag('-B/usr/local/libexec/mold'))):
-                        pass # support mold
+                        pass  # support mold
                     else:
                         error(f'Linker "{linker}" is not supported')
                 if linker == 'gold' and not GetOption('with_lto'):
@@ -416,14 +421,14 @@ for variant_path in variant_paths:
                     # segfaults if both threads and LTO are enabled.
                     conf.CheckLinkFlag('-Wl,--threads')
                     conf.CheckLinkFlag(
-                            '-Wl,--thread-count=%d' % GetOption('num_jobs'))
+                        '-Wl,--thread-count=%d' % GetOption('num_jobs'))
 
     else:
         error('\n'.join((
               "Don't know what compiler options to use for your compiler.",
               "compiler: " + env['CXX'],
               "version: " + CXX_version.replace('\n', '<nl>') if
-                    CXX_version else 'COMMAND NOT FOUND!',
+              CXX_version else 'COMMAND NOT FOUND!',
               "If you're trying to use a compiler other than GCC",
               "or clang, there appears to be something wrong with your",
               "environment.",
@@ -486,7 +491,7 @@ for variant_path in variant_paths:
             env.Append(LIBS=['c++'])
 
     # Add sanitizers flags
-    sanitizers=[]
+    sanitizers = []
     if GetOption('with_ubsan'):
         sanitizers.append('undefined')
     if GetOption('with_asan'):
@@ -508,8 +513,8 @@ for variant_path in variant_paths:
         sanitizers = ','.join(sanitizers)
         if env['GCC'] or env['CLANG']:
             env.Append(CCFLAGS=['-fsanitize=%s' % sanitizers,
-                                 '-fno-omit-frame-pointer'],
-                        LINKFLAGS='-fsanitize=%s' % sanitizers)
+                                '-fno-omit-frame-pointer'],
+                       LINKFLAGS='-fsanitize=%s' % sanitizers)
         else:
             warning("Don't know how to enable %s sanitizer(s) for your "
                     "compiler." % sanitizers)
@@ -517,7 +522,6 @@ for variant_path in variant_paths:
     if sys.platform == 'cygwin':
         # cygwin has some header file issues...
         env.Append(CCFLAGS=["-Wno-uninitialized"])
-
 
     if not GetOption('no_compress_debug'):
         with gem5_scons.Configure(env) as conf:
@@ -543,8 +547,8 @@ for variant_path in variant_paths:
         env.Append(CCFLAGS=['-g', '-pg'], LINKFLAGS=['-pg'])
     if GetOption('pprof'):
         env.Append(CCFLAGS=['-g'],
-                LINKFLAGS=['-Wl,--no-as-needed', '-lprofiler',
-                    '-Wl,--as-needed'])
+                   LINKFLAGS=['-Wl,--no-as-needed', '-lprofiler',
+                              '-Wl,--as-needed'])
 
     env['HAVE_PKG_CONFIG'] = env.Detect('pkg-config')
 
@@ -552,9 +556,9 @@ for variant_path in variant_paths:
         # On Solaris you need to use libsocket for socket ops
         if not conf.CheckLibWithHeader(
                 [None, 'socket'], 'sys/socket.h', 'C++', 'accept(0,0,0);'):
-           error("Can't find library with socket calls (e.g. accept()).")
+            error("Can't find library with socket calls (e.g. accept()).")
 
-        if not conf.CheckLibWithHeader('z', 'zlib.h', 'C++','zlibVersion();'):
+        if not conf.CheckLibWithHeader('z', 'zlib.h', 'C++', 'zlibVersion();'):
             error('Did not find needed zlib compression library '
                   'and/or zlib.h header file.\n'
                   'Please install zlib and try again.')
@@ -586,6 +590,7 @@ for variant_path in variant_paths:
 
     # Register a callback to call after all SConsopts files have been read.
     after_sconsopts_callbacks = []
+
     def AfterSConsopts(cb):
         after_sconsopts_callbacks.append(cb)
     Export('AfterSConsopts')
@@ -598,6 +603,238 @@ for variant_path in variant_paths:
 
     # EXTRAS is special since it affects what SConsopts need to be read.
     sticky_vars.Add(('EXTRAS', 'Add extra directories to the compilation', ''))
+
+# For Ruby
+all_protocols = []
+Export('all_protocols')
+protocol_dirs = []
+Export('protocol_dirs')
+slicc_includes = []
+Export('slicc_includes')
+
+# Walk the tree and execute all SConsopts scripts that wil add to the
+# above variables
+if GetOption('verbose'):
+    print("Reading SConsopts")
+for bdir in [base_dir] + extras_dir_list:
+    if not isdir(bdir):
+        error("Directory '%s' does not exist." % bdir)
+    for root, dirs, files in os.walk(bdir):
+        if 'SConsopts' in files:
+            if GetOption('verbose'):
+                print("Reading", joinpath(root, 'SConsopts'))
+            SConscript(joinpath(root, 'SConsopts'))
+
+all_isa_list.sort()
+all_gpu_isa_list.sort()
+
+sticky_vars.AddVariables(
+    EnumVariable('TARGET_ISA', 'Target ISA', 'null', all_isa_list),
+    EnumVariable('TARGET_GPU_ISA', 'Target GPU ISA', 'gcn3', all_gpu_isa_list),
+    ListVariable('CPU_MODELS', 'CPU models',
+                 sorted(n for n, m in CpuModel.dict.items() if m.default),
+                 sorted(CpuModel.dict.keys())),
+    BoolVariable('EFENCE', 'Link with Electric Fence malloc debugger',
+                 False),
+    BoolVariable('USE_SSE2',
+                 'Compile for SSE2 (-msse2) to get IEEE FP on x86 hosts',
+                 False),
+    BoolVariable('USE_POSIX_CLOCK', 'Use POSIX Clocks', have_posix_clock),
+    BoolVariable('USE_FENV', 'Use <fenv.h> IEEE mode control', have_fenv),
+    BoolVariable('USE_PNG',  'Enable support for PNG images', have_png),
+    BoolVariable('CP_ANNOTATE', 'Enable critical path annotation capability',
+                 False),
+    BoolVariable('USE_KVM', 'Enable hardware virtualized (KVM) CPU models',
+                 have_kvm),
+    BoolVariable('USE_TUNTAP',
+                 'Enable using a tap device to bridge to the host network',
+                 have_tuntap),
+    BoolVariable('BUILD_GPU', 'Build the compute-GPU model', False),
+    BoolVariable('BUILD_VECTOR_ENGINE',
+                 'Build the Vector Engine model', False),
+    EnumVariable('PROTOCOL', 'Coherence protocol for Ruby', 'None',
+                 all_protocols),
+    EnumVariable('BACKTRACE_IMPL', 'Post-mortem dump implementation',
+                 backtrace_impls[-1], backtrace_impls),
+    ('NUMBER_BITS_PER_SET', 'Max elements in set (default 64)',
+     64),
+    BoolVariable('USE_HDF5', 'Enable the HDF5 support', have_hdf5),
+)
+
+# These variables get exported to #defines in config/*.hh (see src/SConscript).
+export_vars += ['USE_FENV', 'TARGET_ISA', 'TARGET_GPU_ISA', 'CP_ANNOTATE',
+                'USE_POSIX_CLOCK', 'USE_KVM', 'USE_TUNTAP', 'PROTOCOL',
+                'HAVE_PROTOBUF', 'HAVE_VALGRIND',
+                'HAVE_PERF_ATTR_EXCLUDE_HOST', 'USE_PNG',
+                'NUMBER_BITS_PER_SET', 'USE_HDF5']
+
+###################################################
+#
+# Define a SCons builder for configuration flag headers.
+#
+###################################################
+
+# This function generates a config header file that #defines the
+# variable symbol to the current variable setting (0 or 1).  The source
+# operands are the name of the variable and a Value node containing the
+# value of the variable.
+
+
+def build_config_file(target, source, env):
+    (variable, value) = [s.get_contents().decode('utf-8') for s in source]
+    with open(str(target[0]), 'w') as f:
+        print('#define', variable, value, file=f)
+    return None
+
+
+# Combine the two functions into a scons Action object.
+config_action = MakeAction(build_config_file, Transform("CONFIG H", 2))
+
+# The emitter munges the source & target node lists to reflect what
+# we're really doing.
+
+
+def config_emitter(target, source, env):
+    # extract variable name from Builder arg
+    variable = str(target[0])
+    # True target is config header file
+    target = joinpath('config', variable.lower() + '.hh')
+    val = env[variable]
+    if isinstance(val, bool):
+        # Force value to 0/1
+        val = int(val)
+    elif isinstance(val, str):
+        val = '"' + val + '"'
+
+    # Sources are variable name & value (packaged in SCons Value nodes)
+    return ([target], [Value(variable), Value(val)])
+
+
+config_builder = Builder(emitter=config_emitter, action=config_action)
+
+main.Append(BUILDERS={'ConfigFile': config_builder})
+
+###################################################
+#
+# Builders for static and shared partially linked object files.
+#
+###################################################
+
+partial_static_builder = Builder(action=SCons.Defaults.LinkAction,
+                                 src_suffix='$OBJSUFFIX',
+                                 src_builder=['StaticObject', 'Object'],
+                                 LINKFLAGS='$PLINKFLAGS',
+                                 LIBS='')
+
+
+def partial_shared_emitter(target, source, env):
+    for tgt in target:
+        tgt.attributes.shared = 1
+    return (target, source)
+
+
+partial_shared_builder = Builder(action=SCons.Defaults.ShLinkAction,
+                                 emitter=partial_shared_emitter,
+                                 src_suffix='$SHOBJSUFFIX',
+                                 src_builder='SharedObject',
+                                 SHLINKFLAGS='$PSHLINKFLAGS',
+                                 LIBS='')
+
+main.Append(BUILDERS={'PartialShared': partial_shared_builder,
+                      'PartialStatic': partial_static_builder})
+
+
+def add_local_rpath(env, *targets):
+    '''Set up an RPATH for a library which lives in the build directory.
+
+    The construction environment variable BIN_RPATH_PREFIX should be set to
+    the relative path of the build directory starting from the location of the
+    binary.'''
+    for target in targets:
+        target = env.Entry(target)
+        if not isinstance(target, SCons.Node.FS.Dir):
+            target = target.dir
+        relpath = os.path.relpath(target.abspath, env['BUILDDIR'])
+        components = [
+            '\\$$ORIGIN',
+            '${BIN_RPATH_PREFIX}',
+            relpath
+        ]
+        env.Append(RPATH=[env.Literal(os.path.join(*components))])
+
+
+if sys.platform != "darwin":
+    main.Append(LINKFLAGS=Split('-z origin'))
+
+main.AddMethod(add_local_rpath, 'AddLocalRPATH')
+
+# builds in ext are shared across all configs in the build root.
+ext_dir = abspath(joinpath(str(main.root), 'ext'))
+ext_build_dirs = []
+for root, dirs, files in os.walk(ext_dir):
+    if 'SConscript' in files:
+        build_dir = os.path.relpath(root, ext_dir)
+        ext_build_dirs.append(build_dir)
+        main.SConscript(joinpath(root, 'SConscript'),
+                        variant_dir=joinpath(build_root, build_dir))
+
+gdb_xml_dir = joinpath(ext_dir, 'gdb-xml')
+Export('gdb_xml_dir')
+
+###################################################
+#
+# This builder and wrapper method are used to set up a directory with
+# switching headers. Those are headers which are in a generic location and
+# that include more specific headers from a directory chosen at build time
+# based on the current build settings.
+#
+###################################################
+
+
+def build_switching_header(target, source, env):
+    path = str(target[0])
+    subdir = str(source[0])
+    dp, fp = os.path.split(path)
+    dp = os.path.relpath(os.path.realpath(dp),
+                         os.path.realpath(env['BUILDDIR']))
+    with open(path, 'w') as hdr:
+        print('#include "%s/%s/%s"' % (dp, subdir, fp), file=hdr)
+
+
+switching_header_action = MakeAction(build_switching_header,
+                                     Transform('GENERATE'))
+
+switching_header_builder = Builder(action=switching_header_action,
+                                   source_factory=Value,
+                                   single_source=True)
+
+main.Append(BUILDERS={'SwitchingHeader': switching_header_builder})
+
+
+def switching_headers(self, headers, source):
+    for header in headers:
+        self.SwitchingHeader(header, source)
+
+
+main.AddMethod(switching_headers, 'SwitchingHeaders')
+
+###################################################
+#
+# Define build environments for selected configurations.
+#
+###################################################
+
+for variant_path in variant_paths:
+    if not GetOption('silent'):
+        print("Building in", variant_path)
+
+    # Make a copy of the build-root environment to use for this config.
+    env = main.Clone()
+    env['BUILDDIR'] = variant_path
+
+    # variant_dir is the tail component of build path, and is used to
+    # determine the build parameters (e.g., 'X86')
+    (build_root, variant_dir) = splitpath(variant_path)
 
     # Set env variables according to the build directory config.
     sticky_vars.files = []
@@ -612,7 +849,7 @@ for variant_path in variant_paths:
         sticky_vars.files.extend(existing_vars_files)
         if not GetOption('silent'):
             print('Using saved variables file(s) %s' %
-                    ', '.join(existing_vars_files))
+                  ', '.join(existing_vars_files))
     else:
         # Variant specific variables file doesn't exist.
 
@@ -623,10 +860,10 @@ for variant_path in variant_paths:
         opts_dir = Dir('#build_opts').abspath
         if default:
             default_vars_files = [
-                    gem5_build_vars,
-                    build_root_vars,
-                    os.path.join(opts_dir, default)
-                ]
+                gem5_build_vars,
+                build_root_vars,
+                os.path.join(opts_dir, default)
+            ]
         else:
             default_vars_files = [os.path.join(opts_dir, variant_dir)]
         existing_default_files = list(filter(isfile, default_vars_files))
@@ -634,11 +871,11 @@ for variant_path in variant_paths:
             default_vars_file = existing_default_files[0]
             sticky_vars.files.append(default_vars_file)
             print("Variables file(s) %s not found,\n  using defaults in %s" %
-                    (' or '.join(current_vars_files), default_vars_file))
+                  (' or '.join(current_vars_files), default_vars_file))
         else:
             error("Cannot find variables file(s) %s or default file(s) %s" %
-                    (' or '.join(current_vars_files),
-                     ' or '.join(default_vars_files)))
+                  (' or '.join(current_vars_files),
+                   ' or '.join(default_vars_files)))
             Exit(1)
 
     # Apply current settings for EXTRAS to env.
@@ -670,7 +907,7 @@ for variant_path in variant_paths:
         SConscript(sconsopts_path, exports={'main': env})
 
     trySConsopts(Dir('#').abspath)
-    for bdir in [ base_dir ] + extras_dir_list:
+    for bdir in [base_dir] + extras_dir_list:
         if not isdir(bdir):
             error("Directory '%s' does not exist." % bdir)
         for root, dirs, files in os.walk(bdir):
@@ -702,10 +939,10 @@ Build variables for {dir}:
     # Do this after we save setting back, or else we'll tack on an
     # extra 'qdo' every time we run scons.
     if env['CONF']['BATCH']:
-        env['CC']     = env['CONF']['BATCH_CMD'] + ' ' + env['CC']
-        env['CXX']    = env['CONF']['BATCH_CMD'] + ' ' + env['CXX']
-        env['AS']     = env['CONF']['BATCH_CMD'] + ' ' + env['AS']
-        env['AR']     = env['CONF']['BATCH_CMD'] + ' ' + env['AR']
+        env['CC'] = env['CONF']['BATCH_CMD'] + ' ' + env['CC']
+        env['CXX'] = env['CONF']['BATCH_CMD'] + ' ' + env['CXX']
+        env['AS'] = env['CONF']['BATCH_CMD'] + ' ' + env['AS']
+        env['AR'] = env['CONF']['BATCH_CMD'] + ' ' + env['AR']
         env['RANLIB'] = env['CONF']['BATCH_CMD'] + ' ' + env['RANLIB']
 
     # Cache build files in the supplied directory.
@@ -713,11 +950,10 @@ Build variables for {dir}:
         print('Using build cache located at', env['CONF']['M5_BUILD_CACHE'])
         CacheDir(env['CONF']['M5_BUILD_CACHE'])
 
-
     env.Append(CCFLAGS='$CCFLAGS_EXTRA')
     env.Append(LINKFLAGS='$LINKFLAGS_EXTRA')
 
-    exports=['env', 'gem5py_env']
+    exports = ['env', 'gem5py_env']
 
     ext_dir = Dir('#ext').abspath
     variant_ext = os.path.join(variant_path, 'ext')

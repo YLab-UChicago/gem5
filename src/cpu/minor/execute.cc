@@ -44,8 +44,12 @@
 #include "cpu/minor/fetch1.hh"
 #include "cpu/minor/lsq.hh"
 #include "cpu/op_class.hh"
+#if THE_ISA == RISCV_ISA
+#include "cpu/vector_engine/vector_engine_interface.hh"
+#endif
 #include "debug/Activity.hh"
 #include "debug/Branch.hh"
+#include "debug/CpuVectorIssue.hh"
 #include "debug/Drain.hh"
 #include "debug/ExecFaulting.hh"
 #include "debug/MinorExecute.hh"
@@ -596,6 +600,36 @@ Execute::issue(ThreadID thread_id)
                 *inst, thread.streamSeqNum);
             issued = true;
             discarded = true;
+#if THE_ISA == RISCV_ISA
+        } else if (inst->staticInst->isMemBarrier() &&
+                    (cpu.ve_interface->bussy() ||
+                    !thread.inFlightInsts->empty())) {
+            DPRINTF(CpuVectorIssue,"Fence Inst blocked the pipeline: %s"
+                "for thread %d\n",*inst, thread.streamSeqNum);
+            issued = false;
+        } else if (inst->staticInst->isVector()) {
+            if (!scoreboard[thread_id].canInstIssue(inst, NULL, NULL,
+                cpu.curCycle(), cpu.getContext(thread_id))) {
+                DPRINTF(CpuVectorIssue,"Vector Ins blocked by scoreboard: %s"
+                    "for thread %d\n",*inst, thread.streamSeqNum);
+                issued = false;
+            }
+            //else if (!cpu.ve_interface->bussy()
+            //    && thread.inFlightInsts->empty()) {
+            else {
+                DPRINTF(CpuVectorIssue,"Vector Instruction Issue to exec:"
+                    "%s \n",*inst);
+                scoreboard[thread_id].markupInstDests(inst, cpu.curCycle() +
+                    Cycles(0), cpu.getContext(thread_id), true);
+
+                QueuedInst fu_inst(inst);
+                thread.inFlightInsts->push(fu_inst);
+                issued = true;
+            }
+            //else {
+            //    issued = false;
+            //}
+#endif // THE_ISA == RISCV_ISA
         } else {
             /* Try and issue an instruction into an FU, assume we didn't and
              * fix that in the loop */
@@ -881,6 +915,11 @@ Execute::doInstCommitAccounting(MinorDynInstPtr inst)
     thread->numOp++;
     thread->threadStats.numOps++;
     cpu.stats.numOps++;
+#if THE_ISA == RISCV_ISA
+    if (inst->staticInst->isVector()) {
+        cpu.stats.numVectorInsts++;
+    }
+#endif // THE_ISA == RISCV_ISA
     cpu.stats.committedInstType[inst->id.threadId]
                                [inst->staticInst->opClass()]++;
 
@@ -1159,6 +1198,120 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
 
             completed_mem_ref = true;
             completed_inst = true;
+#if THE_ISA == RISCV_ISA
+        /*
+         * The interface with the Vector Engine, only for RISC-V systems
+         * The Vector Engine corresponds to a decoupled engine.
+         * requestGrant function is used by the scalar to ask for permision
+         * to send a new vector instruction to the vector engine.
+         * sendCommand function is used to send a command the vector engine.
+         * Previous to use this function, a granted signal from the vector
+         * engine must be received, otherwise, the command must not be send.
+         * reqAppVectorLength function is used by the vector configuration
+         * instructions. This instructions ask to the vector engine for some
+         * vector length, and the vector engine answer with the available one.
+         */
+        } else if (can_commit_insts && waiting_vector_engine_resp &&
+            !completed_vec_inst && inst->staticInst->isVector() ) {
+                DPRINTF(CpuVectorIssue, "Waiting for Vector Engine "
+                "response, not completed inst:  %s \n",*inst);
+                waiting_vector_engine_resp = true;
+                completed_inst = false;
+                completed_vec_inst = false;
+        } else if (can_commit_insts && waiting_vector_engine_resp &&
+            completed_vec_inst && inst->staticInst->isVector() ) {
+                DPRINTF(CpuVectorIssue, "Can commit, completed inst: %s\n",
+                    *inst);
+                waiting_vector_engine_resp = false;
+                completed_vec_inst = false;
+                completed_inst = true;
+        } else if (can_commit_insts && inst->staticInst->isVector()) {
+            /* Is this instruction discardable as its streamSeqNum
+             *  doesn't match? */
+            discard_inst = inst->id.streamSeqNum !=
+                ex_info.streamSeqNum || discard;
+
+            if (discard_inst) {
+                DPRINTF(MinorExecute, "Discarding vec inst: %s as its stream"
+                    " state was unexpected, expected: %d\n",
+                    *inst, ex_info.streamSeqNum);
+            }
+
+            if(!discard_inst)
+            {
+                RiscvISA::VectorStaticInst *vector_insn =
+                    dynamic_cast<RiscvISA::VectorStaticInst*>
+                    (inst->staticInst.get());
+
+                if (!cpu.ve_interface->requestGrant(vector_insn))
+                {
+                    DPRINTF(CpuVectorIssue,"The Vector Engine could not accept"
+                    "the instruction : %s \n",*inst);
+                    completed_inst = false;
+                } else {
+                    doInstCommitAccounting(inst);
+                    ExecContextPtr xc = std::make_shared<ExecContext>(cpu,
+                        *cpu.threads[thread_id],*this, inst);
+
+                    uint64_t  pc = inst->pc.instAddr();
+                    vector_insn->setPC(pc);
+                    uint64_t src1,src2;
+
+                    if (vector_insn->isVecConfig())
+                    {
+                        bool vsetvl = (vector_insn->getName() =="vsetvl");
+                        uint64_t rvl = xc->readIntRegOperand(vector_insn,0);
+                        uint64_t vtype = (vsetvl) ?
+                            xc->readIntRegOperand(vector_insn,1) :
+                            (uint64_t)vector_insn->vtype();
+                        uint64_t gvl = cpu.ve_interface->reqAppVectorLength(
+                            rvl,vtype,(vector_insn->vs1()==0));
+
+                        DPRINTF(CpuVectorIssue,"vsetvl: %d, rvl: %d vtype: %d gvl: %d \n",vsetvl,rvl,vtype,gvl );
+
+                        xc->setMiscReg(RiscvISA::MISCREG_VL,gvl);
+                        xc->setMiscReg(RiscvISA::MISCREG_VTYPE,vtype);
+                        if (vector_insn->vd() != 0) {
+                            DPRINTF(CpuVectorIssue,"Setting register: %d ,"
+                                " with value : %d\n",vector_insn->vd(), gvl);
+                            xc->setIntRegOperand(vector_insn,0,gvl);
+                        }
+                        src1 = gvl;
+                        src2 = vtype;
+                    }
+                    else
+                    {
+
+                    //bool vx_src = (vector_insn->func3()==4) || (vector_insn->func3()==6);
+                    bool vf_src = (vector_insn->func3()==5) && vector_insn->isVectorInstArith();
+                    //bool vi_src = (vector_insn->func3()==3);
+
+                    src1 = (vf_src) ? xc->readFloatRegOperandBits(vector_insn,0) :
+                            xc->readIntRegOperand(vector_insn,0);
+                    src2 = xc->readIntRegOperand(vector_insn,1);
+                    }
+
+                    DPRINTF(CpuVectorIssue,"Sending vector isnt to the Vector"
+                        " Engine: %s , pc: 0x%8X\n",*inst , pc);
+
+                    completed_inst = false;
+                    completed_vec_inst = false;
+                    waiting_vector_engine_resp = true;
+
+                    cpu.ve_interface->sendCommand(vector_insn,xc,src1,src2,
+                        [this,inst,vector_insn]() mutable {
+                        DPRINTF(CpuVectorIssue,"The instruction has been "
+                        "hosted by the Vector Engine %s \n",*inst );
+                        completed_vec_inst = true;
+                    });
+                }
+            }
+            else
+            {
+                /* Discard instruction */
+                completed_inst = true;
+            }
+#endif // THE_ISA == RISCV_ISA
         } else if (can_commit_insts) {
             /* If true, this instruction will, subject to timing tweaks,
              *  be considered for completion.  try_to_commit flattens
@@ -1381,7 +1534,12 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
                 lsq.completeMemBarrierInst(inst, committed_inst);
             }
 
+#if THE_ISA == RISCV_ISA
+            scoreboard[thread_id].clearInstDests(inst, inst->isMemRef()
+                | inst->staticInst->isVector());
+#else // !THE_ISA == RISCV_ISA
             scoreboard[thread_id].clearInstDests(inst, inst->isMemRef());
+#endif // THE_ISA == RISCV_ISA
         }
 
         /* Handle per-cycle instruction counting */
@@ -1563,6 +1721,9 @@ Execute::evaluate()
 
             if (head_inst.inst->isNoCostInst()) {
                 head_inst_might_commit = true;
+            } else if (head_inst.inst->staticInst->isVector()) {
+                head_inst_might_commit = true;
+                break;
             } else {
                 FUPipeline *fu = funcUnits[head_inst.inst->fuIndex];
                 if ((fu->stalled &&
@@ -1714,6 +1875,10 @@ Execute::getCommittingThread()
             QueuedInst *head_inflight_inst = &(ex_info.inFlightInsts->front());
             MinorDynInstPtr inst = head_inflight_inst->inst;
 
+            bool can_execute_vector_inst = false;
+#if THE_ISA == RISCV_ISA
+            can_execute_vector_inst = inst->staticInst->isVector();
+#endif // THE_ISA == RISCV_ISA
             can_commit_insts = can_commit_insts &&
                 (!inst->inLSQ || (lsq.findResponse(inst) != NULL));
 
@@ -1742,7 +1907,8 @@ Execute::getCommittingThread()
                 }
 
                 can_commit_insts = can_commit_insts &&
-                    (can_transfer_mem_inst || can_execute_fu_inst);
+                    (can_transfer_mem_inst || can_execute_fu_inst
+                    || can_execute_vector_inst);
             }
         }
 

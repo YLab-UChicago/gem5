@@ -357,6 +357,14 @@ class Execute : public Named
     /** Like the drain interface on SimObject */
     unsigned int drain();
     void drainResume();
+
+    /** Signal used to know if the scalar core is waiting for an answer
+     *  from the vector engine*/
+    bool waiting_vector_engine_resp = false;
+
+    /** Signal used to know if a vector instruction has been completed
+     *  and proceed with commit */
+    bool completed_vec_inst = false;
 };
 
 } // namespace minor

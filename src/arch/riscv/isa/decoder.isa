@@ -428,6 +428,26 @@ decode QUADRANT default Unknown::unknown() {
                     Fd_bits = fd.v;
                 }}, inst_flags=FloatMemReadOp);
             }
+            0x0: decode MOP {
+                0x0:VectorMemLoadOp::vlb_v();
+                0x2:VectorMemLoadOp::vlsb_v();
+                0x3:VectorMemLoadOp::vlxb_v();
+            }
+            0x5: decode MOP {
+                0x0:VectorMemLoadOp::vlh_v();
+                0x2:VectorMemLoadOp::vlsh_v();
+                0x3:VectorMemLoadOp::vlxh_v();
+            }
+            0x6: decode MOP {
+                0x0:VectorMemLoadOp::vlw_v();
+                0x2:VectorMemLoadOp::vlsw_v();
+                0x3:VectorMemLoadOp::vlxw_v();
+            }
+            0x7: decode MOP {
+                0x0:VectorMemLoadOp::vle_v();
+                0x2:VectorMemLoadOp::vlse_v();
+                0x3:VectorMemLoadOp::vlxe_v();
+            }
         }
 
         0x03: decode FUNCT3 {
@@ -621,6 +641,26 @@ decode QUADRANT default Unknown::unknown() {
 
                     Mem_ud = Fs2_bits;
                 }}, inst_flags=FloatMemWriteOp);
+            }
+            0x0: decode MOP {
+                0x0:VectorMemStoreOp::vsb_v();
+                0x2:VectorMemStoreOp::vssb_v();
+                0x3:VectorMemStoreOp::vsxb_v();
+            }
+            0x5: decode MOP {
+                0x0:VectorMemStoreOp::vsh_v();
+                0x2:VectorMemStoreOp::vssh_v();
+                0x3:VectorMemStoreOp::vsxh_v();
+            }
+            0x6: decode MOP {
+                0x0:VectorMemStoreOp::vsw_v();
+                0x2:VectorMemStoreOp::vssw_v();
+                0x3:VectorMemStoreOp::vsxw_v();
+            }
+            0x7: decode MOP {
+                0x0:VectorMemStoreOp::vse_v();
+                0x2:VectorMemStoreOp::vsse_v();
+                0x3:VectorMemStoreOp::vsxe_v();
             }
         }
 
@@ -1716,7 +1756,218 @@ decode QUADRANT default Unknown::unknown() {
                 }}, FloatCvtOp);
             }
         }
-
+        0x15: decode VFUNC_6 {
+            0x00: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vadd_vv();
+                0x1: VectorData2SrcOp::vfadd_vv();
+                0x2: VectorReductionOp::vredsum_vs();
+                0x3: VectorData2SrcOp::vadd_vi();
+                0x4: VectorData2SrcOp::vadd_vx();
+                0x5: VectorData2SrcOp::vfadd_vf();
+                0x7: VectorConfigOp::vsetvli();
+            }
+            0x01: decode FUNCT3 {
+                0x1: VectorReductionOp::vfredsum_vs();
+                0x2: VectorReductionOp::vredand_vs();
+                }
+            0x02: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vsub_vv();
+                0x1: VectorData2SrcOp::vfsub_vv();
+                0x2: VectorReductionOp::vredor_vs();
+                0x3: VectorData2SrcOp::vsub_vi();
+                0x4: VectorData2SrcOp::vsub_vx();
+                0x5: VectorData2SrcOp::vfsub_vf();
+                }
+             0x03: decode FUNCT3 {
+                0x1: VectorReductionOp::vfredosum_vs();
+                0x2: VectorReductionOp::vredxor_vs();
+                }
+            0x04: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vminu_vv();
+                0x1: VectorData2SrcOp::vfmin_vv();
+                0x2: VectorReductionOp::vredminu_vs();
+                0x4: VectorData2SrcOp::vminu_vx();
+                0x5: VectorData2SrcOp::vfmin_vf();
+                }
+            0x05: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vmin_vv();
+                0x1: VectorReductionOp::vfredmin_vs();
+                0x2: VectorReductionOp::vredmin_vs();
+                0x4: VectorData2SrcOp::vmin_vx();
+                }
+            0x06: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vmaxu_vv();
+                0x1: VectorData2SrcOp::vfmax_vv();
+                0x2: VectorReductionOp::vredmaxu_vs();
+                0x4: VectorData2SrcOp::vmaxu_vx();
+                0x5: VectorData2SrcOp::vfmax_vf();
+                }
+            0x07: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vmax_vv();
+                0x1: VectorReductionOp::vfredmax_vs();
+                0x2: VectorReductionOp::vredmax_vs();
+                0x4: VectorData2SrcOp::vmax_vx();
+                }
+            0x08: decode FUNCT3 {
+                0x1: VectorData2SrcOp::vfsgnj_vv();
+                0x5: VectorData2SrcOp::vfsgnj_vf();
+                }
+            0x09: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vand_vv();
+                0x1: VectorData2SrcOp::vfsgnjn_vv();
+                0x3: VectorData2SrcOp::vand_vi();
+                0x4: VectorData2SrcOp::vand_vx();
+                0x5: VectorData2SrcOp::vfsgnjn_vf();
+                }
+            0x0A: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vor_vv();
+                0x1: VectorData2SrcOp::vfsgnjx_vv();
+                0x3: VectorData2SrcOp::vor_vi();
+                0x4: VectorData2SrcOp::vor_vx();
+                0x5: VectorData2SrcOp::vfsgnjx_vf();
+                }
+            0x0B: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vxor_vv();
+                0x3: VectorData2SrcOp::vxor_vi();
+                0x4: VectorData2SrcOp::vxor_vx();
+                }
+            0x0C: decode FUNCT3 {
+                0x1: VectorToScalarOp::vfmv_fs();
+                0x2: VectorToScalarOp::vext_xv();
+                }
+            0x0E: decode FUNCT3 {
+                0x3: VectorSlideUpOp::vslideup_vi();
+                0x4: VectorSlideUpOp::vslideup_vx();
+                0x6: VectorSlideUpOp::vslide1up_vx();
+                }
+            0x0F: decode FUNCT3 {
+                0x3: VectorSlideDownOp::vslidedown_vi();
+                0x4: VectorSlideDownOp::vslidedown_vx();
+                0x6: VectorSlideDownOp::vslide1down_vx();
+                }
+            0x14: decode FUNCT3 {
+                0x2: VectorToScalarOp::vmpopc_m();
+                }
+            0x15: decode FUNCT3 {
+                0x2: VectorToScalarOp::vmfirst_m();
+                }
+            0x17: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vmerge_vv();
+                0x3: VectorData2SrcOp::vmerge_vi();
+                0x4: VectorData2SrcOp::vmerge_vx();
+                0x5: VectorData2SrcOp::vfmerge_vf();
+                }
+            0x18: decode FUNCT3 {
+                0x0: VectorIntCompareOp::vmseq_vv();
+                0x1: VectorFPCompareOp::vmfeq_vv();
+                0x2: VectorMaskLogicalOp::vmandnot_mm();
+                0x3: VectorIntCompareOp::vmseq_vi();
+                0x4: VectorIntCompareOp::vmseq_vx();
+                0x5: VectorFPCompareOp::vmfeq_vf();
+                }
+            0x19: decode FUNCT3 {
+                0x0: VectorIntCompareOp::vmsne_vv();
+                0x1: VectorFPCompareOp::vmfle_vv();
+                0x2: VectorMaskLogicalOp::vmand_mm();
+                0x3: VectorIntCompareOp::vmsne_vi();
+                0x4: VectorIntCompareOp::vmsne_vx();
+                0x5: VectorFPCompareOp::vmfle_vf();
+                }
+            0x1A: decode FUNCT3 {
+                0x0: VectorIntCompareOp::vmsltu_vv();
+                0x2: VectorMaskLogicalOp::vmor_mm();
+                0x4: VectorIntCompareOp::vmsltu_vx();
+                }
+            0x1B: decode FUNCT3 {
+                0x0: VectorIntCompareOp::vmslt_vv();
+                0x1: VectorFPCompareOp::vmflt_vv();
+                0x2: VectorMaskLogicalOp::vmxor_mm();
+                0x4: VectorIntCompareOp::vmslt_vx();
+                0x5: VectorFPCompareOp::vmflt_vf();
+                }
+            0x1C: decode FUNCT3 {
+                0x0: VectorIntCompareOp::vmsleu_vv();
+                0x1: VectorFPCompareOp::vmfne_vv();
+                0x2: VectorMaskLogicalOp::vmornot_mm();
+                0x3: VectorIntCompareOp::vmsleu_vi();
+                0x4: VectorIntCompareOp::vmsleu_vx();
+                0x5: VectorFPCompareOp::vmfne_vf();
+                }
+            0x1D: decode FUNCT3 {
+                0x0: VectorIntCompareOp::vmsle_vv();
+                0x2: VectorMaskLogicalOp::vmnand_mm();
+                0x3: VectorIntCompareOp::vmsle_vi();
+                0x4: VectorIntCompareOp::vmsle_vx();
+                0x5: VectorFPCompareOp::vmfgt_vf();
+                }
+            0x1E: decode FUNCT3 {
+                0x2: VectorMaskLogicalOp::vmnor_mm();
+                0x3: VectorIntCompareOp::vmsgtu_vi();
+                0x4: VectorIntCompareOp::vmsgtu_vx();
+                }
+            0x1F: decode FUNCT3 {
+                0x2: VectorMaskLogicalOp::vmxnor_mm();
+                0x3: VectorIntCompareOp::vmsgt_vi();
+                0x4: VectorIntCompareOp::vmsgt_vx();
+                0x5: VectorFPCompareOp::vmfge_vf();
+                }
+            0x20: decode FUNCT3 {
+                0x1: VectorData2SrcOp::vfdiv_vv();
+                0x5: VectorData2SrcOp::vfdiv_vf();
+                0x7: VectorConfigOp::vsetvl();
+                }
+            0x21: decode FUNCT3 {
+                0x2: VectorData2SrcOp::vdiv_vv();
+                0x6: VectorData2SrcOp::vdiv_vx();
+                }
+            0x22: decode FUNCT3 {
+                0x1: decode VS1{
+                    0x0:VectorConvertFPToIntOp::vfcvt_xu_f_v();   // Convert float to unsigned integer.
+                    0x1:VectorConvertFPToIntOp::vfcvt_x_f_v();    // Convert float to signed integer.
+                    0x2:VectorConvertIntToFPOp::vfcvt_f_xu_v();   // Convert unsigned integer to float.
+                    0x3:VectorConvertIntToFPOp::vfcvt_f_x_v();    // Convert signed integer to float.
+                    // Widening Operations are not fully supported. WIP
+                    0x8:VectorWConvertFPToIntOp::vfwcvt_xu_f_v(); // Convert float to double-width unsigned integer.
+                    0x9:VectorWConvertFPToIntOp::vfwcvt_x_f_v();  // Convert float to double-width signed integer.
+                    0xA:VectorWConvertIntToFPOp::vfwcvt_f_xu_v(); // Convert unsigned integer to double-width float.
+                    0xB:VectorWConvertIntToFPOp::vfwcvt_f_x_v();  // Convert signed integer to double-width float.
+                    0xC:VectorWConvertFPToFPOp::vfwcvt_f_f_v();  // Convert single-width float to double-width float.
+                    // Narrowing Operations are not fully supported. WIP
+                    0x10:VectorNConvertFPToIntOp::vfncvt_xu_f_v(); // Convert double-width float to unsigned integer.
+                    0x11:VectorNConvertFPToIntOp::vfncvt_x_f_v();  // Convert double-width float to signed integer.
+                    0x12:VectorNConvertIntToFPOp::vfncvt_f_xu_v(); // Convert double-width unsigned integer to float.
+                    0x13:VectorNConvertIntToFPOp::vfncvt_f_x_v();  // Convert double-width signed integer to float
+                    0x14:VectorNConvertFPToFPOp::vfncvt_f_f_v();  // Convert double-width float to single-width float.
+                    }
+                }
+            0x23: decode FUNCT3 {
+                0x1: VectorData1SrcOp::vfsqrt_v();
+                0x2: VectorData2SrcOp::vrem_vv();
+                0x6: VectorData2SrcOp::vrem_vx();
+                }
+            0x24: decode FUNCT3 {
+                0x1: VectorData2SrcOp::vfmul_vv();
+                0x5: VectorData2SrcOp::vfmul_vf();
+                }
+            0x25: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vsll_vv();
+                0x2: VectorData2SrcOp::vmul_vv();
+                0x3: VectorData2SrcOp::vsll_vi();
+                0x4: VectorData2SrcOp::vsll_vx();
+                0x6: VectorData2SrcOp::vmul_vx();
+                }
+            0x28: decode FUNCT3 {
+                0x0: VectorData2SrcOp::vsrl_vv();
+                0x1: VectorData3SrcOp::vfmadd_vv();
+                0x3: VectorData2SrcOp::vsrl_vi();
+                0x4: VectorData2SrcOp::vsrl_vx();
+                0x5: VectorData3SrcOp::vfmadd_vf();
+                }
+            0x2C: decode FUNCT3 {
+                0x1: VectorData3SrcOp::vfmacc_vv();
+                0x5: VectorData3SrcOp::vfmacc_vf();
+                }
+        }
         0x18: decode FUNCT3 {
             format BOp {
                 0x0: beq({{

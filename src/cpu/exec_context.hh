@@ -70,8 +70,10 @@ namespace gem5
  * implementation doesn't copy the pointer into any long-term storage
  * (which is pretty hard to imagine they would have reason to do).
  */
-class ExecContext
-{
+
+typedef std::shared_ptr<ExecContext> ExecContextPtr;
+
+class ExecContext {
   public:
 
     virtual RegVal getRegOperand(const StaticInst *si, int idx) = 0;
